@@ -10,6 +10,8 @@ mod database;
 /// contains the root level functions for which detect the job
 /// type and call the corresponding job
 mod jobs;
+/// Contains the trait that all proof clients must implement.
+mod proof_clients;
 /// Contains the trait that all queues must implement
 mod queue;
 /// Contains the routes for the service
