@@ -17,8 +17,10 @@ axum = { workspace = true, features = ["macros"] }
 axum-macros = { workspace = true }
 color-eyre = { workspace = true }
 da-client-interface = { workspace = true }
+settlement-client-interface = { workspace = true }
 dotenvy = { workspace = true }
 ethereum-da-client = { workspace = true, optional = true }
+ethereum-settlement-client = { workspace = true, optional = true }
 futures = { workspace = true }
 mockall = "0.12.1"
 mongodb = { workspace = true, features = ["bson-uuid-1"], optional = true }
@@ -33,10 +35,11 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 url = { workspace = true }
 uuid = { workspace = true, features = ["v4", "serde"] }
+reqwest = { version = "0.11", features = ["blocking"] }
 
 [features]
 default = ["ethereum", "with_mongodb", "with_sqs"]
-ethereum = ["ethereum-da-client"]
+ethereum = ["ethereum-da-client", "ethereum-settlement-client"]
 with_mongodb = ["mongodb"]
 with_sqs = ["omniqueue"]
 

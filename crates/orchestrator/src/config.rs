@@ -5,10 +5,14 @@ use crate::queue::sqs::SqsQueue;
 use crate::queue::QueueProvider;
 use crate::utils::env_utils::get_env_var_or_panic;
 use da_client_interface::DaClient;
+use settlement_client_interface::SettlementClient;
 use da_client_interface::DaConfig;
+use settlement_client_interface::SettlementConfig;
 use dotenvy::dotenv;
 use ethereum_da_client::config::EthereumDaConfig;
 use ethereum_da_client::EthereumDaClient;
+use ethereum_settlement_client::config::EthereumSettlementConfig;
+use ethereum_settlement_client::EthereumSettlementClient;
 use starknet::providers::jsonrpc::HttpTransport;
 use starknet::providers::{JsonRpcClient, Url};
 use std::sync::Arc;
@@ -21,6 +25,8 @@ pub struct Config {
     starknet_client: Arc<JsonRpcClient<HttpTransport>>,
     /// The DA client to interact with the DA layer
     da_client: Box<dyn DaClient>,
+    /// The Settlement client to interact with the Settlement layer
+    settlement_client: Box<dyn SettlementClient>,
     /// The database client
     database: Box<dyn Database>,
     /// The queue provider
@@ -42,7 +48,7 @@ pub async fn init_config() -> Config {
     // init the queue
     let queue = Box::new(SqsQueue {});
 
-    Config { starknet_client: Arc::new(provider), da_client: build_da_client(), database, queue }
+    Config { starknet_client: Arc::new(provider), da_client: build_da_client(), settlement_client: build_settlement_client(), database, queue }
 }
 
 impl Config {
@@ -50,10 +56,11 @@ impl Config {
     pub fn new(
         starknet_client: Arc<JsonRpcClient<HttpTransport>>,
         da_client: Box<dyn DaClient>,
+        settlement_client: Box<dyn SettlementClient>,
         database: Box<dyn Database>,
         queue: Box<dyn QueueProvider>,
     ) -> Self {
-        Self { starknet_client, da_client, database, queue }
+        Self { starknet_client, da_client, settlement_client, database, queue }
     }
 
     /// Returns the starknet client
@@ -64,6 +71,11 @@ impl Config {
     /// Returns the DA client
     pub fn da_client(&self) -> &dyn DaClient {
         self.da_client.as_ref()
+    }
+
+    /// Returns the Settlement client
+    pub fn settlement_client(&self) -> &dyn SettlementClient {
+        self.settlement_client.as_ref()
     }
 
     /// Returns the database client
@@ -94,5 +106,16 @@ fn build_da_client() -> Box<dyn DaClient + Send + Sync> {
             Box::new(EthereumDaClient::from(config))
         }
         _ => panic!("Unsupported DA layer"),
+    }
+}
+
+/// Builds the Settlement client based on the environment variable SETTLEMENT_LAYER
+fn build_settlement_client() -> Box<dyn SettlementClient + Send + Sync> {
+    match get_env_var_or_panic("SETTLEMENT_LAYER").as_str() {
+        "ethereum" => {
+            let config = EthereumSettlementConfig::new_from_env();
+            Box::new(EthereumSettlementClient::from(config))
+        }
+        _ => panic!("Unsupported Settlement layer"),
     }
 }

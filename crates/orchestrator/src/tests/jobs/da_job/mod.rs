@@ -21,7 +21,7 @@ use da_client_interface::{DaVerificationStatus, MockDaClient};
 #[rstest]
 #[tokio::test]
 async fn test_create_job() {
-    let config = init_config(None, None, None, None).await;
+    let config = init_config(None, None, None, None, None).await;
     let job = DaJob.create_job(&config, String::from("0"), HashMap::new()).await;
     assert!(job.is_ok());
 
@@ -41,7 +41,7 @@ async fn test_verify_job(#[from(default_job_item)] job_item: JobItem) {
     let mut da_client = MockDaClient::new();
     da_client.expect_verify_inclusion().times(1).returning(|_| Ok(DaVerificationStatus::Verified));
 
-    let config = init_config(None, None, None, Some(da_client)).await;
+    let config = init_config(None, None, None, Some(da_client), None).await;
     assert!(DaJob.verify_job(&config, &job_item).await.is_ok());
 }
 
@@ -53,7 +53,7 @@ async fn test_process_job() {
     let mut da_client = MockDaClient::new();
     let internal_id = "1";
     da_client.expect_publish_state_diff().times(1).returning(|_| Ok(internal_id.to_string()));
-    let config = init_config(Some(format!("http://localhost:{}", server.port())), None, None, Some(da_client)).await;
+    let config = init_config(Some(format!("http://localhost:{}", server.port())), None, None, Some(da_client), None).await;
 
     let state_update = MaybePendingStateUpdate::Update(StateUpdate {
         block_hash: FieldElement::default(),

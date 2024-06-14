@@ -12,7 +12,7 @@ use super::common::init_config;
 
 #[fixture]
 pub async fn setup_server() -> SocketAddr {
-    let _config = init_config(Some("http://localhost:9944".to_string()), None, None, None).await;
+    let _config = init_config(Some("http://localhost:9944".to_string()), None, None, None, None).await;
 
     let host = get_env_var_or_default("HOST", "127.0.0.1");
     let port = get_env_var_or_default("PORT", "3000").parse::<u16>().expect("PORT must be a u16");

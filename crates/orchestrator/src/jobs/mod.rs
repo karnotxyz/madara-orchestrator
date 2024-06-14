@@ -12,7 +12,7 @@ use uuid::Uuid;
 
 mod constants;
 pub mod da_job;
-mod register_proof_job;
+pub mod register_proof_job;
 pub mod snos_job;
 mod state_update_job;
 pub mod types;

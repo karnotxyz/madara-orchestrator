@@ -1,5 +1,6 @@
 use color_eyre::{eyre::eyre, Result};
 use da_client_interface::DaVerificationStatus;
+use settlement_client_interface::SettlementVerificationStatus;
 // TODO: job types shouldn't depend on mongodb
 use mongodb::bson::serde_helpers::uuid_1_as_binary;
 use serde::{Deserialize, Serialize};
@@ -134,6 +135,16 @@ impl From<DaVerificationStatus> for JobVerificationStatus {
             DaVerificationStatus::Pending => JobVerificationStatus::Pending,
             DaVerificationStatus::Verified => JobVerificationStatus::Verified,
             DaVerificationStatus::Rejected => JobVerificationStatus::Rejected,
+        }
+    }
+}
+
+impl From<SettlementVerificationStatus> for JobVerificationStatus {
+    fn from(status: SettlementVerificationStatus) -> Self {
+        match status {
+            SettlementVerificationStatus::Pending => JobVerificationStatus::Pending,
+            SettlementVerificationStatus::Verified => JobVerificationStatus::Verified,
+            SettlementVerificationStatus::Rejected => JobVerificationStatus::Rejected,
         }
     }
 }

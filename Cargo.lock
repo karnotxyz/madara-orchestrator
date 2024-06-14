@@ -2084,6 +2084,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "ethereum-settlement-client"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "async-trait",
+ "color-eyre",
+ "reqwest",
+ "settlement-client-interface",
+ "starknet",
+ "url",
+ "utils",
+]
+
+[[package]]
 name = "ethereum-types"
 version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3652,15 +3666,18 @@ dependencies = [
  "da-client-interface",
  "dotenvy",
  "ethereum-da-client",
+ "ethereum-settlement-client",
  "futures",
  "httpmock",
  "hyper 0.14.28",
  "mockall",
  "mongodb",
  "omniqueue",
+ "reqwest",
  "rstest",
  "serde",
  "serde_json",
+ "settlement-client-interface",
  "starknet",
  "starknet-core 0.9.0",
  "thiserror",

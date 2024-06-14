@@ -4,6 +4,8 @@ members = [
   "crates/orchestrator",
   "crates/da_clients/da-client-interface",
   "crates/da_clients/ethereum",
+  "crates/settlement_clients/settlement-client-interface",
+  "crates/settlement_clients/ethereum",
   "crates/utils",
   "crates/settlement_clients/settlement-client-interface",
 ]
@@ -37,4 +39,6 @@ uuid = { version = "1.7.0" }
 httpmock = { version = "0.7.0" }
 da-client-interface = { path = "crates/da_clients/da-client-interface" }
 ethereum-da-client = { path = "crates/da_clients/ethereum" }
+settlement-client-interface = { path = "crates/settlement_clients/settlement-client-interface" }
+ethereum-settlement-client = { path = "crates/settlement_clients/ethereum" }
 utils = { path = "crates/utils" }
