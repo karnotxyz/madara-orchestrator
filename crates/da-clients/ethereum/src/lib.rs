@@ -5,7 +5,8 @@ use std::path::Path;
 use std::str::FromStr;
 
 use alloy::consensus::{
-    BlobTransactionSidecar, SignableTransaction, TxEip4844, TxEip4844Variant, TxEip4844WithSidecar, TxEnvelope,
+    BlobTransactionSidecar, SignableTransaction, TxEip4844, TxEip4844Variant, TxEip4844WithSidecar,
+    TxEnvelope,
 };
 use alloy::eips::eip2718::Encodable2718;
 use alloy::eips::eip2930::AccessList;
@@ -44,16 +45,26 @@ impl DaClient for EthereumDaClient {
         let wallet = &self.wallet;
         let addr = wallet.address();
 
-        let (sidecar_blobs, sidecar_commitments, sidecar_proofs) = prepare_sidecar(&state_diff, trusted_setup).await?;
-        let sidecar = BlobTransactionSidecar::new(sidecar_blobs, sidecar_commitments, sidecar_proofs);
+        let (sidecar_blobs, sidecar_commitments, sidecar_proofs) =
+            prepare_sidecar(&state_diff, trusted_setup).await?;
+        let sidecar =
+            BlobTransactionSidecar::new(sidecar_blobs, sidecar_commitments, sidecar_proofs);
 
         let eip1559_est = provider.estimate_eip1559_fees(None).await?;
         let chain_id: u64 = provider.get_chain_id().await?.to_string().parse()?;
 
         let max_fee_per_blob_gas: u128 = provider.get_blob_base_fee().await?.to_string().parse()?;
-        let max_priority_fee_per_gas: u128 = provider.get_max_priority_fee_per_gas().await?.to_string().parse()?;
+        let max_priority_fee_per_gas: u128 = provider
+            .get_max_priority_fee_per_gas()
+            .await?
+            .to_string()
+            .parse()?;
 
-        let nonce = provider.get_transaction_count(addr, None).await?.to_string().parse()?;
+        let nonce = provider
+            .get_transaction_count(addr, None)
+            .await?
+            .to_string()
+            .parse()?;
         let to = FixedBytes(*to);
 
         let tx = TxEip4844 {
@@ -69,7 +80,10 @@ impl DaClient for EthereumDaClient {
             max_fee_per_blob_gas,
             input: bytes!(),
         };
-        let tx_sidecar = TxEip4844WithSidecar { tx: tx.clone(), sidecar: sidecar.clone() };
+        let tx_sidecar = TxEip4844WithSidecar {
+            tx: tx.clone(),
+            sidecar: sidecar.clone(),
+        };
         let mut variant = TxEip4844Variant::from(tx_sidecar);
 
         // Sign and submit
@@ -108,21 +122,33 @@ impl DaClient for EthereumDaClient {
 
 impl From<EthereumDaConfig> for EthereumDaClient {
     fn from(config: EthereumDaConfig) -> Self {
-        let client =
-            RpcClient::new_http(Url::from_str(config.rpc_url.as_str()).expect("Failed to parse ETHEREUM_RPC_URL"));
+        let client = RpcClient::new_http(
+            Url::from_str(config.rpc_url.as_str()).expect("Failed to parse ETHEREUM_RPC_URL"),
+        );
         let provider = ProviderBuilder::<_, Ethereum>::new().on_client(client);
-        let wallet: LocalWallet = env::var("PK").expect("PK must be set").parse().expect("issue while parsing");
+        let wallet: LocalWallet = env::var("PK")
+            .expect("PK must be set")
+            .parse()
+            .expect("issue while parsing");
         // let wallet: LocalWallet = config.private_key.as_str().parse();
         let trusted_setup = KzgSettings::load_trusted_setup_file(Path::new("./trusted_setup.txt"))
             .expect("issue while loading the trusted setup");
-        EthereumDaClient { provider, wallet, trusted_setup }
+        EthereumDaClient {
+            provider,
+            wallet,
+            trusted_setup,
+        }
     }
 }
 
 async fn prepare_sidecar(
     state_diff: &[Vec<u8>],
     trusted_setup: &KzgSettings,
-) -> Result<(Vec<FixedBytes<131072>>, Vec<FixedBytes<48>>, Vec<FixedBytes<48>>)> {
+) -> Result<(
+    Vec<FixedBytes<131072>>,
+    Vec<FixedBytes<48>>,
+    Vec<FixedBytes<48>>,
+)> {
     let mut sidecar_blobs = vec![];
     let mut sidecar_commitments = vec![];
     let mut sidecar_proofs = vec![];
@@ -174,7 +200,9 @@ mod tests {
 
         // creation of sidecar
         let (_sidecar_blobs, sidecar_commitments, sidecar_proofs) =
-            prepare_sidecar(&[data_v8], &trusted_setup).await.expect("Error creating the sidecar blobs");
+            prepare_sidecar(&[data_v8], &trusted_setup)
+                .await
+                .expect("Error creating the sidecar blobs");
 
         // blob commitment from L1
         let commitment_vector = hex_string_to_u8_vec(

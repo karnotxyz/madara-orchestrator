@@ -8,6 +8,8 @@ pub struct MongoDbConfig {
 
 impl DatabaseConfig for MongoDbConfig {
     fn new_from_env() -> Self {
-        Self { url: get_env_var_or_panic("MONGODB_CONNECTION_STRING") }
+        Self {
+            url: get_env_var_or_panic("MONGODB_CONNECTION_STRING"),
+        }
     }
 }

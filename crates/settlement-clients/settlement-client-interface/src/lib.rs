@@ -31,7 +31,11 @@ pub trait SettlementClient: Send + Sync {
     ) -> Result<String>;
 
     /// Should be used to update state on core contract when DA is in blobs/alt DA
-    async fn update_state_blobs(&self, program_output: Vec<FieldElement>, kzg_proof: Vec<u8>) -> Result<String>;
+    async fn update_state_blobs(
+        &self,
+        program_output: Vec<FieldElement>,
+        kzg_proof: Vec<u8>,
+    ) -> Result<String>;
 
     /// Should verify the inclusion of the state diff in the DA layer and return the status
     async fn verify_inclusion(&self, external_id: &str) -> Result<SettlementVerificationStatus>;

@@ -50,7 +50,10 @@ pub fn generate_merkle_root(
     program_output: &[Felt252],
     fact_topology: &FactTopology,
 ) -> Result<FactNode, FactCheckerError> {
-    let FactTopology { tree_structure, mut page_sizes } = fact_topology.clone();
+    let FactTopology {
+        tree_structure,
+        mut page_sizes,
+    } = fact_topology.clone();
 
     let mut end_offset: usize = 0;
     let mut node_stack: Vec<FactNode> = Vec::with_capacity(page_sizes.len());
@@ -66,11 +69,20 @@ pub fn generate_merkle_root(
         for _ in 0..n_pages {
             let page_size = page_sizes.remove(0);
             // Page size is already validated upon retrieving the topology
-            let page = output_iter.by_ref().take(page_size).map(|felt| felt.to_bytes_be().to_vec()).concat();
+            let page = output_iter
+                .by_ref()
+                .take(page_size)
+                .map(|felt| felt.to_bytes_be().to_vec())
+                .concat();
             let node_hash = keccak256(&page);
             end_offset += page_size;
             // Add lead node (no children)
-            node_stack.push(FactNode { node_hash, end_offset, page_size, children: vec![] })
+            node_stack.push(FactNode {
+                node_hash,
+                end_offset,
+                page_size,
+                children: vec![],
+            })
         }
 
         ensure!(
@@ -101,15 +113,24 @@ pub fn generate_merkle_root(
             })
         }
 
-        ensure!(node_stack.len() == 1, FactCheckerError::TreeStructureRootInvalid);
-        ensure!(page_sizes.is_empty(), FactCheckerError::TreeStructurePagesNotProcessed(page_sizes.len()));
+        ensure!(
+            node_stack.len() == 1,
+            FactCheckerError::TreeStructureRootInvalid
+        );
+        ensure!(
+            page_sizes.is_empty(),
+            FactCheckerError::TreeStructurePagesNotProcessed(page_sizes.len())
+        );
         ensure!(
             end_offset == program_output.len(),
             FactCheckerError::TreeStructureEndOffsetInvalid(end_offset, program_output.len())
         );
         ensure!(
             node_stack[0].end_offset == program_output.len(),
-            FactCheckerError::TreeStructureRootOffsetInvalid(node_stack[0].end_offset, program_output.len(),)
+            FactCheckerError::TreeStructureRootOffsetInvalid(
+                node_stack[0].end_offset,
+                program_output.len(),
+            )
         );
     }
 

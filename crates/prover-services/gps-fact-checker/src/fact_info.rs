@@ -26,7 +26,10 @@ pub struct FactInfo {
     pub fact: B256,
 }
 
-pub fn get_fact_info(cairo_pie: &CairoPie, program_hash: Option<FieldElement>) -> Result<FactInfo, FactCheckerError> {
+pub fn get_fact_info(
+    cairo_pie: &CairoPie,
+    program_hash: Option<FieldElement>,
+) -> Result<FactInfo, FactCheckerError> {
     let program_output = get_program_output(cairo_pie)?;
     let fact_topology = get_fact_topology(cairo_pie, program_output.len())?;
     let program_hash = match program_hash {
@@ -35,7 +38,11 @@ pub fn get_fact_info(cairo_pie: &CairoPie, program_hash: Option<FieldElement>) -
     };
     let output_root = generate_merkle_root(&program_output, &fact_topology)?;
     let fact = keccak256([program_hash.to_bytes_be(), *output_root.node_hash].concat());
-    Ok(FactInfo { program_output, fact_topology, fact })
+    Ok(FactInfo {
+        program_output,
+        fact_topology,
+        fact,
+    })
 }
 
 pub fn get_program_output(cairo_pie: &CairoPie) -> Result<Vec<Felt252>, FactCheckerError> {
@@ -50,7 +57,13 @@ pub fn get_program_output(cairo_pie: &CairoPie) -> Result<Vec<Felt252>, FactChec
         .0
         .iter()
         .enumerate()
-        .find_map(|(ptr, ((index, _), _))| if *index == segment_info.index as usize { Some(ptr) } else { None })
+        .find_map(|(ptr, ((index, _), _))| {
+            if *index == segment_info.index as usize {
+                Some(ptr)
+            } else {
+                None
+            }
+        })
         .ok_or(FactCheckerError::OutputSegmentNotFound)?;
 
     let mut output = Vec::with_capacity(segment_info.size);
@@ -58,7 +71,11 @@ pub fn get_program_output(cairo_pie: &CairoPie) -> Result<Vec<Felt252>, FactChec
 
     #[allow(clippy::explicit_counter_loop)]
     for i in segment_start..segment_start + segment_info.size {
-        let ((_, offset), value) = cairo_pie.memory.0.get(i).ok_or(FactCheckerError::OutputSegmentInvalidRange)?;
+        let ((_, offset), value) = cairo_pie
+            .memory
+            .0
+            .get(i)
+            .ok_or(FactCheckerError::OutputSegmentInvalidRange)?;
 
         ensure!(
             *offset == expected_offset,
@@ -67,7 +84,9 @@ pub fn get_program_output(cairo_pie: &CairoPie) -> Result<Vec<Felt252>, FactChec
         match value {
             MaybeRelocatable::Int(felt) => output.push(*felt),
             MaybeRelocatable::RelocatableValue(_) => {
-                return Err(FactCheckerError::OutputSegmentUnexpectedRelocatable(*offset));
+                return Err(FactCheckerError::OutputSegmentUnexpectedRelocatable(
+                    *offset,
+                ));
             }
         }
 
@@ -89,8 +108,14 @@ mod tests {
     fn test_fact_info() {
         // Generated using the get_fact.py script
         let expected_fact = "0xca15503f02f8406b599cb220879e842394f5cf2cef753f3ee430647b5981b782";
-        let cairo_pie_path: PathBuf =
-            [env!("CARGO_MANIFEST_DIR"), "tests", "artifacts", "fibonacci.zip"].iter().collect();
+        let cairo_pie_path: PathBuf = [
+            env!("CARGO_MANIFEST_DIR"),
+            "tests",
+            "artifacts",
+            "fibonacci.zip",
+        ]
+        .iter()
+        .collect();
         let cairo_pie = CairoPie::read_zip_file(&cairo_pie_path).unwrap();
         let fact_info = get_fact_info(&cairo_pie, None).unwrap();
         assert_eq!(expected_fact, fact_info.fact.to_string());

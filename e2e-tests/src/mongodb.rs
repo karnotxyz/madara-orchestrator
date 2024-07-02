@@ -25,7 +25,10 @@ impl MongoDbServer {
             .start()
             .await
             .expect("Failed to create docker container");
-        Self { container, endpoint: Url::parse(&format!("http://127.0.0.1:{}", host_port)).unwrap() }
+        Self {
+            container,
+            endpoint: Url::parse(&format!("http://127.0.0.1:{}", host_port)).unwrap(),
+        }
     }
 
     pub fn endpoint(&self) -> &Url {

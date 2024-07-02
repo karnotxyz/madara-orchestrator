@@ -26,7 +26,10 @@ pub async fn init_config(
     da_client: Option<MockDaClient>,
     prover_client: Option<MockProverClient>,
 ) -> Config {
-    let _ = tracing_subscriber::fmt().with_max_level(tracing::Level::INFO).with_target(false).try_init();
+    let _ = tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::INFO)
+        .with_target(false)
+        .try_init();
 
     let rpc_url = rpc_url.unwrap_or(MADARA_RPC_URL.to_string());
     let database = database.unwrap_or_default();
@@ -35,9 +38,17 @@ pub async fn init_config(
     let prover_client = prover_client.unwrap_or_default();
 
     // init starknet client
-    let provider = JsonRpcClient::new(HttpTransport::new(Url::parse(rpc_url.as_str()).expect("Failed to parse URL")));
+    let provider = JsonRpcClient::new(HttpTransport::new(
+        Url::parse(rpc_url.as_str()).expect("Failed to parse URL"),
+    ));
 
-    Config::new(Arc::new(provider), Box::new(da_client), Box::new(prover_client), Box::new(database), Box::new(queue))
+    Config::new(
+        Arc::new(provider),
+        Box::new(da_client),
+        Box::new(prover_client),
+        Box::new(database),
+        Box::new(queue),
+    )
 }
 
 #[fixture]
@@ -54,7 +65,10 @@ pub fn default_job_item() -> JobItem {
 }
 
 #[fixture]
-pub fn custom_job_item(default_job_item: JobItem, #[default(String::from("0"))] internal_id: String) -> JobItem {
+pub fn custom_job_item(
+    default_job_item: JobItem,
+    #[default(String::from("0"))] internal_id: String,
+) -> JobItem {
     let mut job_item = default_job_item;
     job_item.internal_id = internal_id;
 

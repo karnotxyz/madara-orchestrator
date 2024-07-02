@@ -35,8 +35,10 @@ async fn test_proving_worker(#[case] incomplete_runs: bool) -> Result<(), Box<dy
     // Mocking Prover Client
 
     if incomplete_runs {
-        let jobs_vec_temp: Vec<JobItem> =
-            get_job_item_mock_by_id_vec(5).into_iter().filter(|val| val.internal_id != "3").collect();
+        let jobs_vec_temp: Vec<JobItem> = get_job_item_mock_by_id_vec(5)
+            .into_iter()
+            .filter(|val| val.internal_id != "3")
+            .collect();
         // Mocking db call for getting successful snos jobs
         db.expect_get_jobs_without_successor()
             .times(1)
@@ -49,7 +51,10 @@ async fn test_proving_worker(#[case] incomplete_runs: bool) -> Result<(), Box<dy
             db_checks(i, &mut db);
         }
 
-        prover_client.expect_submit_task().times(4).returning(|_| Ok("task_id".to_string()));
+        prover_client
+            .expect_submit_task()
+            .times(4)
+            .returning(|_| Ok("task_id".to_string()));
 
         // Queue function call simulations
         queue
@@ -68,7 +73,10 @@ async fn test_proving_worker(#[case] incomplete_runs: bool) -> Result<(), Box<dy
             .withf(|_, _, _| true)
             .returning(move |_, _, _| Ok(get_job_item_mock_by_id_vec(5)));
 
-        prover_client.expect_submit_task().times(5).returning(|_| Ok("task_id".to_string()));
+        prover_client
+            .expect_submit_task()
+            .times(5)
+            .returning(|_| Ok("task_id".to_string()));
 
         // Queue function call simulations
         queue
@@ -137,6 +145,9 @@ fn db_checks(id: i32, db: &mut MockDatabase) {
 }
 
 fn get_hashmap() -> HashMap<String, String> {
-    let cairo_pie_path = format!("{}/src/tests/artifacts/fibonacci.zip", env!("CARGO_MANIFEST_DIR"));
+    let cairo_pie_path = format!(
+        "{}/src/tests/artifacts/fibonacci.zip",
+        env!("CARGO_MANIFEST_DIR")
+    );
     HashMap::from([(JOB_METADATA_CAIRO_PIE_PATH_KEY.into(), cairo_pie_path)])
 }

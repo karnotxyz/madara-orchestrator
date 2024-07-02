@@ -17,24 +17,37 @@ use crate::jobs::Job;
 #[tokio::test]
 async fn test_create_job() {
     let config = init_config(None, None, None, None, None).await;
-    let job = DaJob.create_job(&config, String::from("0"), HashMap::new()).await;
+    let job = DaJob
+        .create_job(&config, String::from("0"), HashMap::new())
+        .await;
     assert!(job.is_ok());
 
     let job = job.unwrap();
 
     let job_type = job.job_type;
-    assert_eq!(job_type, JobType::DataSubmission, "job_type should be DataSubmission");
+    assert_eq!(
+        job_type,
+        JobType::DataSubmission,
+        "job_type should be DataSubmission"
+    );
     assert!(!(job.id.is_nil()), "id should not be nil");
     assert_eq!(job.status, JobStatus::Created, "status should be Created");
     assert_eq!(job.version, 0_i32, "version should be 0");
-    assert_eq!(job.external_id.unwrap_string().unwrap(), String::new(), "external_id should be empty string");
+    assert_eq!(
+        job.external_id.unwrap_string().unwrap(),
+        String::new(),
+        "external_id should be empty string"
+    );
 }
 
 #[rstest]
 #[tokio::test]
 async fn test_verify_job(#[from(default_job_item)] job_item: JobItem) {
     let mut da_client = MockDaClient::new();
-    da_client.expect_verify_inclusion().times(1).returning(|_| Ok(DaVerificationStatus::Verified));
+    da_client
+        .expect_verify_inclusion()
+        .times(1)
+        .returning(|_| Ok(DaVerificationStatus::Verified));
 
     let config = init_config(None, None, None, Some(da_client), None).await;
     assert!(DaJob.verify_job(&config, &job_item).await.is_ok());
@@ -48,12 +61,27 @@ async fn test_process_job() {
     let mut da_client = MockDaClient::new();
     let internal_id = "1";
 
-    da_client.expect_publish_state_diff().times(1).returning(|_, _| Ok(internal_id.to_string()));
-    da_client.expect_max_bytes_per_blob().times(1).returning(move || ETHEREUM_MAX_BYTES_PER_BLOB);
-    da_client.expect_max_blob_per_txn().times(1).returning(move || ETHEREUM_MAX_BLOB_PER_TXN);
+    da_client
+        .expect_publish_state_diff()
+        .times(1)
+        .returning(|_, _| Ok(internal_id.to_string()));
+    da_client
+        .expect_max_bytes_per_blob()
+        .times(1)
+        .returning(move || ETHEREUM_MAX_BYTES_PER_BLOB);
+    da_client
+        .expect_max_blob_per_txn()
+        .times(1)
+        .returning(move || ETHEREUM_MAX_BLOB_PER_TXN);
 
-    let config =
-        init_config(Some(format!("http://localhost:{}", server.port())), None, None, Some(da_client), None).await;
+    let config = init_config(
+        Some(format!("http://localhost:{}", server.port())),
+        None,
+        None,
+        Some(da_client),
+        None,
+    )
+    .await;
     let state_update = MaybePendingStateUpdate::Update(StateUpdate {
         block_hash: FieldElement::default(),
         new_root: FieldElement::default(),
@@ -72,7 +100,8 @@ async fn test_process_job() {
 
     let state_update_mock = server.mock(|when, then| {
         when.path("/").body_contains("starknet_getStateUpdate");
-        then.status(200).body(serde_json::to_vec(&response).unwrap());
+        then.status(200)
+            .body(serde_json::to_vec(&response).unwrap());
     });
 
     assert_eq!(

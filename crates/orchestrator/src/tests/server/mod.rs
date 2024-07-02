@@ -13,18 +13,31 @@ use crate::routes::app_router;
 
 #[fixture]
 pub async fn setup_server() -> SocketAddr {
-    let _config = init_config(Some("http://localhost:9944".to_string()), None, None, None, None).await;
+    let _config = init_config(
+        Some("http://localhost:9944".to_string()),
+        None,
+        None,
+        None,
+        None,
+    )
+    .await;
 
     let host = get_env_var_or_default("HOST", "127.0.0.1");
-    let port = get_env_var_or_default("PORT", "3000").parse::<u16>().expect("PORT must be a u16");
+    let port = get_env_var_or_default("PORT", "3000")
+        .parse::<u16>()
+        .expect("PORT must be a u16");
     let address = format!("{}:{}", host, port);
 
-    let listener = tokio::net::TcpListener::bind(address.clone()).await.expect("Failed to get listener");
+    let listener = tokio::net::TcpListener::bind(address.clone())
+        .await
+        .expect("Failed to get listener");
     let addr = listener.local_addr().unwrap();
     let app = app_router();
 
     tokio::spawn(async move {
-        axum::serve(listener, app).await.expect("Failed to start axum server");
+        axum::serve(listener, app)
+            .await
+            .expect("Failed to start axum server");
     });
 
     tracing::info!("Listening on http://{}", address);
@@ -39,7 +52,12 @@ async fn test_health_endpoint(#[future] setup_server: SocketAddr) {
 
     let client = hyper::Client::new();
     let response = client
-        .request(Request::builder().uri(format!("http://{}/health", addr)).body(Body::empty()).unwrap())
+        .request(
+            Request::builder()
+                .uri(format!("http://{}/health", addr))
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
 

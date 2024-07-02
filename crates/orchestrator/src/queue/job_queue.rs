@@ -37,7 +37,11 @@ where
 {
     log::info!("Consuming from queue {:?}", queue);
     let config = config().await;
-    let delivery = match config.queue().consume_message_from_queue(queue.clone()).await {
+    let delivery = match config
+        .queue()
+        .consume_message_from_queue(queue.clone())
+        .await
+    {
         Ok(d) => d,
         Err(QueueError::NoData) => {
             return Ok(());
@@ -50,11 +54,19 @@ where
 
     match job_message {
         Some(job_message) => {
-            log::info!("Handling job with id {:?} for queue {:?}", job_message.id, queue);
+            log::info!(
+                "Handling job with id {:?} for queue {:?}",
+                job_message.id,
+                queue
+            );
             match handler(job_message.id).await {
                 Ok(_) => delivery.ack().await.map_err(|(e, _)| e)?,
                 Err(e) => {
-                    log::error!("Failed to handle job with id {:?}. Error: {:?}", job_message.id, e);
+                    log::error!(
+                        "Failed to handle job with id {:?}. Error: {:?}",
+                        job_message.id,
+                        e
+                    );
 
                     // if the queue as a retry logic at the source, it will be attempted
                     // after the nack
@@ -74,7 +86,11 @@ pub async fn init_consumers() -> Result<()> {
         loop {
             match consume_job_from_queue(JOB_PROCESSING_QUEUE.to_string(), process_job).await {
                 Ok(_) => {}
-                Err(e) => log::error!("Failed to consume from queue {:?}. Error: {:?}", JOB_PROCESSING_QUEUE, e),
+                Err(e) => log::error!(
+                    "Failed to consume from queue {:?}. Error: {:?}",
+                    JOB_PROCESSING_QUEUE,
+                    e
+                ),
             }
             sleep(Duration::from_secs(1)).await;
         }
@@ -83,7 +99,11 @@ pub async fn init_consumers() -> Result<()> {
         loop {
             match consume_job_from_queue(JOB_VERIFICATION_QUEUE.to_string(), verify_job).await {
                 Ok(_) => {}
-                Err(e) => log::error!("Failed to consume from queue {:?}. Error: {:?}", JOB_VERIFICATION_QUEUE, e),
+                Err(e) => log::error!(
+                    "Failed to consume from queue {:?}. Error: {:?}",
+                    JOB_VERIFICATION_QUEUE,
+                    e
+                ),
             }
             sleep(Duration::from_secs(1)).await;
         }
@@ -94,6 +114,9 @@ pub async fn init_consumers() -> Result<()> {
 async fn add_job_to_queue(id: Uuid, queue: String, delay: Option<Duration>) -> Result<()> {
     let config = config().await;
     let message = JobQueueMessage { id };
-    config.queue().send_message_to_queue(queue, serde_json::to_string(&message)?, delay).await?;
+    config
+        .queue()
+        .send_message_to_queue(queue, serde_json::to_string(&message)?, delay)
+        .await?;
     Ok(())
 }

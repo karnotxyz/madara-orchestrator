@@ -30,7 +30,10 @@ async fn test_snos_worker(#[case] db_val: bool) -> Result<(), Box<dyn Error>> {
 
     // Mocking db function expectations
     if !db_val {
-        db.expect_get_latest_job_by_type_and_internal_id().times(1).with(eq(JobType::SnosRun)).returning(|_| Ok(None));
+        db.expect_get_latest_job_by_type_and_internal_id()
+            .times(1)
+            .with(eq(JobType::SnosRun))
+            .returning(|_| Ok(None));
         start_job_index = 1;
         block = 5;
     } else {
@@ -68,15 +71,21 @@ async fn test_snos_worker(#[case] db_val: bool) -> Result<(), Box<dyn Error>> {
     // mock block number (madara) : 5
     let rpc_response_block_number = block;
     let response = json!({ "id": 1,"jsonrpc":"2.0","result": rpc_response_block_number });
-    let config =
-        init_config(Some(format!("http://localhost:{}", server.port())), Some(db), Some(queue), Some(da_client), None)
-            .await;
+    let config = init_config(
+        Some(format!("http://localhost:{}", server.port())),
+        Some(db),
+        Some(queue),
+        Some(da_client),
+        None,
+    )
+    .await;
     config_force_init(config).await;
 
     // mocking block call
     let rpc_block_call_mock = server.mock(|when, then| {
         when.path("/").body_contains("starknet_blockNumber");
-        then.status(200).body(serde_json::to_vec(&response).unwrap());
+        then.status(200)
+            .body(serde_json::to_vec(&response).unwrap());
     });
 
     let snos_worker = SnosWorker {};

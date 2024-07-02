@@ -21,7 +21,9 @@ impl Default for SharpConfig {
         Self {
             service_url: DEFAULT_SHARP_URL.parse().unwrap(),
             rpc_node_url: "https://sepolia.drpc.org".parse().unwrap(),
-            verifier_address: "0x07ec0D28e50322Eb0C159B9090ecF3aeA8346DFe".parse().unwrap(),
+            verifier_address: "0x07ec0D28e50322Eb0C159B9090ecF3aeA8346DFe"
+                .parse()
+                .unwrap(),
         }
     }
 }

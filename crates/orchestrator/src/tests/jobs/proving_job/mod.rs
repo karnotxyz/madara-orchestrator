@@ -27,18 +27,29 @@ async fn test_create_job() {
     let job = job.unwrap();
 
     let job_type = job.job_type;
-    assert_eq!(job_type, JobType::ProofCreation, "job_type should be ProofCreation");
+    assert_eq!(
+        job_type,
+        JobType::ProofCreation,
+        "job_type should be ProofCreation"
+    );
     assert!(!(job.id.is_nil()), "id should not be nil");
     assert_eq!(job.status, JobStatus::Created, "status should be Created");
     assert_eq!(job.version, 0_i32, "version should be 0");
-    assert_eq!(job.external_id.unwrap_string().unwrap(), String::new(), "external_id should be empty string");
+    assert_eq!(
+        job.external_id.unwrap_string().unwrap(),
+        String::new(),
+        "external_id should be empty string"
+    );
 }
 
 #[rstest]
 #[tokio::test]
 async fn test_verify_job(#[from(default_job_item)] job_item: JobItem) {
     let mut prover_client = MockProverClient::new();
-    prover_client.expect_get_task_status().times(1).returning(|_| Ok(TaskStatus::Succeeded));
+    prover_client
+        .expect_get_task_status()
+        .times(1)
+        .returning(|_| Ok(TaskStatus::Succeeded));
 
     let config = init_config(None, None, None, None, Some(prover_client)).await;
     assert!(ProvingJob.verify_job(&config, &job_item).await.is_ok());
@@ -50,12 +61,24 @@ async fn test_process_job() {
     let server = MockServer::start();
 
     let mut prover_client = MockProverClient::new();
-    prover_client.expect_submit_task().times(1).returning(|_| Ok("task_id".to_string()));
+    prover_client
+        .expect_submit_task()
+        .times(1)
+        .returning(|_| Ok("task_id".to_string()));
 
-    let config =
-        init_config(Some(format!("http://localhost:{}", server.port())), None, None, None, Some(prover_client)).await;
+    let config = init_config(
+        Some(format!("http://localhost:{}", server.port())),
+        None,
+        None,
+        None,
+        Some(prover_client),
+    )
+    .await;
 
-    let cairo_pie_path = format!("{}/src/tests/artifacts/fibonacci.zip", env!("CARGO_MANIFEST_DIR"));
+    let cairo_pie_path = format!(
+        "{}/src/tests/artifacts/fibonacci.zip",
+        env!("CARGO_MANIFEST_DIR")
+    );
 
     assert_eq!(
         ProvingJob
@@ -67,7 +90,10 @@ async fn test_process_job() {
                     job_type: JobType::ProofCreation,
                     status: JobStatus::Created,
                     external_id: String::new().into(),
-                    metadata: HashMap::from([(JOB_METADATA_CAIRO_PIE_PATH_KEY.into(), cairo_pie_path)]),
+                    metadata: HashMap::from([(
+                        JOB_METADATA_CAIRO_PIE_PATH_KEY.into(),
+                        cairo_pie_path
+                    )]),
                     version: 0,
                 }
             )

@@ -23,6 +23,8 @@ fn get_free_port() -> u16 {
 
 fn get_repository_root() -> PathBuf {
     let manifest_path = Path::new(&env!("CARGO_MANIFEST_DIR"));
-    let repository_root = manifest_path.parent().expect("Failed to get parent directory of CARGO_MANIFEST_DIR");
+    let repository_root = manifest_path
+        .parent()
+        .expect("Failed to get parent directory of CARGO_MANIFEST_DIR");
     repository_root.to_path_buf()
 }

@@ -26,7 +26,9 @@ pub struct MongoDb {
 
 impl MongoDb {
     pub async fn new(config: MongoDbConfig) -> Self {
-        let mut client_options = ClientOptions::parse(config.url).await.expect("Failed to parse MongoDB Url");
+        let mut client_options = ClientOptions::parse(config.url)
+            .await
+            .expect("Failed to parse MongoDB Url");
         // Set the server_api field of the client_options object to set the version of the Stable API on the
         // client
         let server_api = ServerApi::builder().version(ServerApiVersion::V1).build();
@@ -34,7 +36,11 @@ impl MongoDb {
         // Get a handle to the cluster
         let client = Client::with_options(client_options).expect("Failed to create MongoDB client");
         // Ping the server to see if you can connect to the cluster
-        client.database("admin").run_command(doc! {"ping": 1}, None).await.expect("Failed to ping MongoDB deployment");
+        client
+            .database("admin")
+            .run_command(doc! {"ping": 1}, None)
+            .await
+            .expect("Failed to ping MongoDB deployment");
         println!("Pinged your deployment. You successfully connected to MongoDB!");
 
         MongoDb { client }
@@ -47,15 +53,24 @@ impl MongoDb {
     /// Updates the job in the database optimistically. This means that the job is updated only if
     /// the version of the job in the database is the same as the version of the job passed in.
     /// If the version is different, the update fails.
-    async fn update_job_optimistically(&self, current_job: &JobItem, update: Document) -> Result<()> {
+    async fn update_job_optimistically(
+        &self,
+        current_job: &JobItem,
+        update: Document,
+    ) -> Result<()> {
         let filter = doc! {
             "id": current_job.id,
             "version": current_job.version,
         };
         let options = UpdateOptions::builder().upsert(false).build();
-        let result = self.get_job_collection().update_one(filter, update, options).await?;
+        let result = self
+            .get_job_collection()
+            .update_one(filter, update, options)
+            .await?;
         if result.modified_count == 0 {
-            return Err(eyre!("Failed to update job. Job version is likely outdated"));
+            return Err(eyre!(
+                "Failed to update job. Job version is likely outdated"
+            ));
         }
         Ok(())
     }
@@ -75,7 +90,11 @@ impl Database for MongoDb {
         Ok(self.get_job_collection().find_one(filter, None).await?)
     }
 
-    async fn get_job_by_internal_id_and_type(&self, internal_id: &str, job_type: &JobType) -> Result<Option<JobItem>> {
+    async fn get_job_by_internal_id_and_type(
+        &self,
+        internal_id: &str,
+        job_type: &JobType,
+    ) -> Result<Option<JobItem>> {
         let filter = doc! {
             "internal_id": internal_id,
             "job_type": mongodb::bson::to_bson(&job_type)?,
@@ -111,7 +130,11 @@ impl Database for MongoDb {
         Ok(())
     }
 
-    async fn update_metadata(&self, job: &JobItem, metadata: HashMap<String, String>) -> Result<()> {
+    async fn update_metadata(
+        &self,
+        job: &JobItem,
+        metadata: HashMap<String, String>,
+    ) -> Result<()> {
         let update = doc! {
             "$set": {
                 "metadata":  mongodb::bson::to_document(&metadata)?
@@ -121,11 +144,16 @@ impl Database for MongoDb {
         Ok(())
     }
 
-    async fn get_latest_job_by_type_and_internal_id(&self, job_type: JobType) -> Result<Option<JobItem>> {
+    async fn get_latest_job_by_type_and_internal_id(
+        &self,
+        job_type: JobType,
+    ) -> Result<Option<JobItem>> {
         let filter = doc! {
             "job_type": mongodb::bson::to_bson(&job_type)?,
         };
-        let find_options = FindOneOptions::builder().sort(doc! { "internal_id": -1 }).build();
+        let find_options = FindOneOptions::builder()
+            .sort(doc! { "internal_id": -1 })
+            .build();
         Ok(self
             .get_job_collection()
             .find_one(filter, find_options)

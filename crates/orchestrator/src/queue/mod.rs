@@ -14,8 +14,16 @@ use omniqueue::{Delivery, QueueError};
 #[automock]
 #[async_trait]
 pub trait QueueProvider: Send + Sync {
-    async fn send_message_to_queue(&self, queue: String, payload: String, delay: Option<Duration>) -> Result<()>;
-    async fn consume_message_from_queue(&self, queue: String) -> std::result::Result<Delivery, QueueError>;
+    async fn send_message_to_queue(
+        &self,
+        queue: String,
+        payload: String,
+        delay: Option<Duration>,
+    ) -> Result<()>;
+    async fn consume_message_from_queue(
+        &self,
+        queue: String,
+    ) -> std::result::Result<Delivery, QueueError>;
 }
 
 pub async fn init_consumers() -> Result<()> {

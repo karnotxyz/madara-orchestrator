@@ -10,7 +10,9 @@ use lazy_static::lazy_static;
 use num_bigint::{BigUint, ToBigUint};
 use num_traits::{Num, Zero};
 //
-use starknet::core::types::{BlockId, FieldElement, MaybePendingStateUpdate, StateUpdate, StorageEntry};
+use starknet::core::types::{
+    BlockId, FieldElement, MaybePendingStateUpdate, StateUpdate, StorageEntry,
+};
 use starknet::providers::Provider;
 use tracing::log;
 use uuid::Uuid;
@@ -62,11 +64,18 @@ impl Job for DaJob {
 
     async fn process_job(&self, config: &Config, job: &JobItem) -> Result<String> {
         let block_no = job.internal_id.parse::<u64>()?;
-        let state_update = config.starknet_client().get_state_update(BlockId::Number(block_no)).await?;
+        let state_update = config
+            .starknet_client()
+            .get_state_update(BlockId::Number(block_no))
+            .await?;
 
         let state_update = match state_update {
             MaybePendingStateUpdate::PendingUpdate(_) => {
-                log::error!("Cannot process block {} for job id {} as it's still in pending state", block_no, job.id);
+                log::error!(
+                    "Cannot process block {} for job id {} as it's still in pending state",
+                    block_no,
+                    job.id
+                );
                 return Err(eyre!(
                     "Cannot process block {} for job id {} as it's still in pending state",
                     block_no,
@@ -87,8 +96,8 @@ impl Job for DaJob {
         let max_blob_per_txn = config.da_client().max_blob_per_txn().await;
 
         // converting BigUints to Vec<u8>, one Vec<u8> represents one blob data
-        let blob_array =
-            data_to_blobs(max_bytes_per_blob, transformed_data).expect("error while converting blob data to vec<u8>");
+        let blob_array = data_to_blobs(max_bytes_per_blob, transformed_data)
+            .expect("error while converting blob data to vec<u8>");
         let current_blob_length: u64 = blob_array.len().try_into().unwrap();
 
         // there is a limit on number of blobs per txn, checking that here
@@ -104,13 +113,20 @@ impl Job for DaJob {
 
         // making the txn to the DA layer
         // TODO: move the core contract address to the config
-        let external_id = config.da_client().publish_state_diff(blob_array, &[0; 32]).await?;
+        let external_id = config
+            .da_client()
+            .publish_state_diff(blob_array, &[0; 32])
+            .await?;
 
         Ok(external_id)
     }
 
     async fn verify_job(&self, config: &Config, job: &JobItem) -> Result<JobVerificationStatus> {
-        Ok(config.da_client().verify_inclusion(job.external_id.unwrap_string()?).await?.into())
+        Ok(config
+            .da_client()
+            .verify_inclusion(job.external_id.unwrap_string()?)
+            .await?
+            .into())
     }
 
     fn max_process_attempts(&self) -> u64 {
@@ -176,7 +192,10 @@ fn data_to_blobs(blob_size: u64, block_data: Vec<BigUint>) -> Result<Vec<Vec<u8>
     let mut blobs: Vec<Vec<u8>> = Vec::new();
 
     // Convert all FieldElements to bytes first
-    let mut bytes: Vec<u8> = block_data.iter().flat_map(|element| element.to_bytes_be().to_vec()).collect();
+    let mut bytes: Vec<u8> = block_data
+        .iter()
+        .flat_map(|element| element.to_bytes_be().to_vec())
+        .collect();
 
     // Process bytes in chunks of blob_size
     while bytes.len() >= blob_size as usize {
@@ -190,7 +209,10 @@ fn data_to_blobs(blob_size: u64, block_data: Vec<BigUint>) -> Result<Vec<Vec<u8>
         let mut last_blob = bytes;
         last_blob.resize(blob_size as usize, 0); // Pad with zeros
         blobs.push(last_blob);
-        println!("Warning: Remaining {} bytes not forming a complete blob were padded", remaining_bytes);
+        println!(
+            "Warning: Remaining {} bytes not forming a complete blob were padded",
+            remaining_bytes
+        );
     }
 
     Ok(blobs)
@@ -212,20 +234,37 @@ async fn state_update_to_blob_data(
         state_update.block_hash,
     ];
 
-    let storage_diffs: HashMap<FieldElement, &Vec<StorageEntry>> =
-        state_diff.storage_diffs.iter().map(|item| (item.address, &item.storage_entries)).collect();
-    let declared_classes: HashMap<FieldElement, FieldElement> =
-        state_diff.declared_classes.iter().map(|item| (item.class_hash, item.compiled_class_hash)).collect();
-    let deployed_contracts: HashMap<FieldElement, FieldElement> =
-        state_diff.deployed_contracts.iter().map(|item| (item.address, item.class_hash)).collect();
-    let replaced_classes: HashMap<FieldElement, FieldElement> =
-        state_diff.replaced_classes.iter().map(|item| (item.contract_address, item.class_hash)).collect();
-    let mut nonces: HashMap<FieldElement, FieldElement> =
-        state_diff.nonces.iter().map(|item| (item.contract_address, item.nonce)).collect();
+    let storage_diffs: HashMap<FieldElement, &Vec<StorageEntry>> = state_diff
+        .storage_diffs
+        .iter()
+        .map(|item| (item.address, &item.storage_entries))
+        .collect();
+    let declared_classes: HashMap<FieldElement, FieldElement> = state_diff
+        .declared_classes
+        .iter()
+        .map(|item| (item.class_hash, item.compiled_class_hash))
+        .collect();
+    let deployed_contracts: HashMap<FieldElement, FieldElement> = state_diff
+        .deployed_contracts
+        .iter()
+        .map(|item| (item.address, item.class_hash))
+        .collect();
+    let replaced_classes: HashMap<FieldElement, FieldElement> = state_diff
+        .replaced_classes
+        .iter()
+        .map(|item| (item.contract_address, item.class_hash))
+        .collect();
+    let mut nonces: HashMap<FieldElement, FieldElement> = state_diff
+        .nonces
+        .iter()
+        .map(|item| (item.contract_address, item.nonce))
+        .collect();
 
     // Loop over storage diffs
     for (addr, writes) in storage_diffs {
-        let class_flag = deployed_contracts.get(&addr).or_else(|| replaced_classes.get(&addr));
+        let class_flag = deployed_contracts
+            .get(&addr)
+            .or_else(|| replaced_classes.get(&addr));
 
         let mut nonce = nonces.remove(&addr);
 
@@ -233,7 +272,10 @@ async fn state_update_to_blob_data(
         // nonce for the block
 
         if nonce.is_none() && !writes.is_empty() && addr != FieldElement::ONE {
-            let get_current_nonce_result = config.starknet_client().get_nonce(BlockId::Number(block_no), addr).await;
+            let get_current_nonce_result = config
+                .starknet_client()
+                .get_nonce(BlockId::Number(block_no), addr)
+                .await;
 
             nonce = match get_current_nonce_result {
                 OtherOk(get_current_nonce) => Some(get_current_nonce),
@@ -305,7 +347,8 @@ fn da_word(class_flag: bool, nonce_change: Option<FieldElement>, num_changes: u6
     let padded_binary_string = format!("{:0>64}", binary_representation);
     binary_string += &padded_binary_string;
 
-    let biguint = BigUint::from_str_radix(binary_string.as_str(), 2).expect("Invalid binary string");
+    let biguint =
+        BigUint::from_str_radix(binary_string.as_str(), 2).expect("Invalid binary string");
 
     // Now convert the BigUint to a decimal string
     let decimal_string = biguint.to_str_radix(10);
@@ -342,7 +385,11 @@ mod tests {
         #[case] num_changes: u64,
         #[case] expected: String,
     ) {
-        let new_nonce = if new_nonce > 0 { Some(FieldElement::from(new_nonce)) } else { None };
+        let new_nonce = if new_nonce > 0 {
+            Some(FieldElement::from(new_nonce))
+        } else {
+            None
+        };
         let da_word = da_word(class_flag, new_nonce, num_changes);
         let expected = FieldElement::from_dec_str(expected.as_str()).unwrap();
         assert_eq!(da_word, expected);
@@ -376,11 +423,19 @@ mod tests {
     ) {
         let server = MockServer::start();
 
-        let config = init_config(Some(format!("http://localhost:{}", server.port())), None, None, None, None).await;
+        let config = init_config(
+            Some(format!("http://localhost:{}", server.port())),
+            None,
+            None,
+            None,
+            None,
+        )
+        .await;
 
         get_nonce_attached(&server, nonce_file_path);
 
-        let state_update = read_state_update_from_file(state_update_file_path).expect("issue while reading");
+        let state_update =
+            read_state_update_from_file(state_update_file_path).expect("issue while reading");
         let blob_data = state_update_to_blob_data(block_no, state_update, &config)
             .await
             .expect("issue while converting state update to blob data");
@@ -394,7 +449,10 @@ mod tests {
         let recovered_blob_data = blob::recover(original_blob_data.clone());
         let blob_data_state_diffs = serde::parse_state_diffs(recovered_blob_data.as_slice());
 
-        assert!(block_data_state_diffs.unordered_eq(&blob_data_state_diffs), "value of data json should be identical");
+        assert!(
+            block_data_state_diffs.unordered_eq(&blob_data_state_diffs),
+            "value of data json should be identical"
+        );
     }
 
     #[rstest]
@@ -445,13 +503,17 @@ mod tests {
             let address = entry.address.clone();
             let nonce = entry.nonce.clone();
             let response = json!({ "id": 1,"jsonrpc":"2.0","result": nonce });
-            let field_element =
-                FieldElement::from_dec_str(&address).expect("issue while converting the hex to field").to_bytes_be();
+            let field_element = FieldElement::from_dec_str(&address)
+                .expect("issue while converting the hex to field")
+                .to_bytes_be();
             let hex_field_element = vec_u8_to_hex_string(&field_element);
 
             server.mock(|when, then| {
-                when.path("/").body_contains("starknet_getNonce").body_contains(hex_field_element);
-                then.status(200).body(serde_json::to_vec(&response).unwrap());
+                when.path("/")
+                    .body_contains("starknet_getNonce")
+                    .body_contains(hex_field_element);
+                then.status(200)
+                    .body(serde_json::to_vec(&response).unwrap());
             });
         }
     }

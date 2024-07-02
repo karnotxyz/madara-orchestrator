@@ -33,8 +33,12 @@ impl FactChecker {
     }
 
     pub async fn is_valid(&self, fact: &B256) -> Result<bool, FactCheckerError> {
-        let FactRegistry::isValidReturn { _0 } =
-            self.fact_registry.isValid(*fact).call().await.map_err(FactCheckerError::FactRegistry)?;
+        let FactRegistry::isValidReturn { _0 } = self
+            .fact_registry
+            .isValid(*fact)
+            .call()
+            .await
+            .map_err(FactCheckerError::FactRegistry)?;
         Ok(_0)
     }
 }

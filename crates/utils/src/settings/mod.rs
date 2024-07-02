@@ -9,5 +9,8 @@ pub enum SettingsProviderError {
 }
 
 pub trait SettingsProvider {
-    fn get_settings<T: DeserializeOwned + Default>(&self, name: &'static str) -> Result<T, SettingsProviderError>;
+    fn get_settings<T: DeserializeOwned + Default>(
+        &self,
+        name: &'static str,
+    ) -> Result<T, SettingsProviderError>;
 }

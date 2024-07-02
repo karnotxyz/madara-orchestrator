@@ -53,7 +53,13 @@ pub async fn init_config() -> Config {
     let settings_provider = DefaultSettingsProvider {};
     let prover = create_prover_service(&settings_provider);
 
-    Config { starknet_client: Arc::new(provider), da_client: build_da_client(), prover_client: prover, database, queue }
+    Config {
+        starknet_client: Arc::new(provider),
+        da_client: build_da_client(),
+        prover_client: prover,
+        database,
+        queue,
+    }
 }
 
 impl Config {
@@ -65,7 +71,13 @@ impl Config {
         database: Box<dyn Database>,
         queue: Box<dyn QueueProvider>,
     ) -> Self {
-        Self { starknet_client, da_client, prover_client, database, queue }
+        Self {
+            starknet_client,
+            da_client,
+            prover_client,
+            database,
+            queue,
+        }
     }
 
     /// Returns the starknet client
@@ -103,7 +115,9 @@ pub static CONFIG: OnceCell<ArcSwap<Config>> = OnceCell::const_new();
 
 /// Returns the app config. Initializes if not already done.
 pub async fn config() -> Guard<Arc<Config>> {
-    let cfg = CONFIG.get_or_init(|| async { ArcSwap::from_pointee(init_config().await) }).await;
+    let cfg = CONFIG
+        .get_or_init(|| async { ArcSwap::from_pointee(init_config().await) })
+        .await;
     cfg.load()
 }
 
@@ -116,7 +130,9 @@ pub async fn config_force_init(config: Config) {
     match CONFIG.get() {
         Some(arc) => arc.store(Arc::new(config)),
         None => {
-            CONFIG.get_or_init(|| async { ArcSwap::from_pointee(config) }).await;
+            CONFIG
+                .get_or_init(|| async { ArcSwap::from_pointee(config) })
+                .await;
         }
     }
 }

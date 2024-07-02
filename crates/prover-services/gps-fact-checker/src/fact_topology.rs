@@ -22,24 +22,46 @@ pub struct FactTopology {
 }
 
 /// Returns the fact topology from the additional data of the output builtin.
-pub fn get_fact_topology(cairo_pie: &CairoPie, output_size: usize) -> Result<FactTopology, FactCheckerError> {
-    if let Some(BuiltinAdditionalData::Output(additional_data)) = cairo_pie.additional_data.0.get(&BuiltinName::output)
+pub fn get_fact_topology(
+    cairo_pie: &CairoPie,
+    output_size: usize,
+) -> Result<FactTopology, FactCheckerError> {
+    if let Some(BuiltinAdditionalData::Output(additional_data)) =
+        cairo_pie.additional_data.0.get(&BuiltinName::output)
     {
         let tree_structure = match additional_data.attributes.get(GPS_FACT_TOPOLOGY) {
             Some(tree_structure) => {
-                ensure!(!tree_structure.is_empty(), FactCheckerError::TreeStructureEmpty);
-                ensure!(tree_structure.len() % 2 == 0, FactCheckerError::TreeStructureLenOdd);
-                ensure!(tree_structure.len() <= 10, FactCheckerError::TreeStructureTooLarge);
-                ensure!(tree_structure.iter().all(|&x| x < 2 << 30), FactCheckerError::TreeStructureInvalid);
+                ensure!(
+                    !tree_structure.is_empty(),
+                    FactCheckerError::TreeStructureEmpty
+                );
+                ensure!(
+                    tree_structure.len() % 2 == 0,
+                    FactCheckerError::TreeStructureLenOdd
+                );
+                ensure!(
+                    tree_structure.len() <= 10,
+                    FactCheckerError::TreeStructureTooLarge
+                );
+                ensure!(
+                    tree_structure.iter().all(|&x| x < 2 << 30),
+                    FactCheckerError::TreeStructureInvalid
+                );
                 tree_structure.clone()
             }
             None => {
-                ensure!(additional_data.pages.is_empty(), FactCheckerError::OutputPagesLenUnexpected);
+                ensure!(
+                    additional_data.pages.is_empty(),
+                    FactCheckerError::OutputPagesLenUnexpected
+                );
                 vec![1, 0]
             }
         };
         let page_sizes = get_page_sizes(&additional_data.pages, output_size)?;
-        Ok(FactTopology { tree_structure, page_sizes })
+        Ok(FactTopology {
+            tree_structure,
+            page_sizes,
+        })
     } else {
         Err(FactCheckerError::OutputBuiltinNoAdditionalData)
     }
@@ -51,8 +73,10 @@ pub fn get_page_sizes(
     pages: &HashMap<usize, PublicMemoryPage>,
     output_size: usize,
 ) -> Result<Vec<usize>, FactCheckerError> {
-    let mut pages_list: Vec<(usize, usize, usize)> =
-        pages.iter().map(|(&id, page)| (id, page.start, page.size)).collect();
+    let mut pages_list: Vec<(usize, usize, usize)> = pages
+        .iter()
+        .map(|(&id, page)| (id, page.start, page.size))
+        .collect();
     pages_list.sort();
 
     // The first page id is expected to be 1.
@@ -65,7 +89,10 @@ pub fn get_page_sizes(
     page_sizes.push(output_size);
 
     for (page_id, page_start, page_size) in pages_list {
-        ensure!(page_id == expected_page_id, FactCheckerError::OutputPagesUnexpectedId(page_id, expected_page_id));
+        ensure!(
+            page_id == expected_page_id,
+            FactCheckerError::OutputPagesUnexpectedId(page_id, expected_page_id)
+        );
 
         if page_id == 1 {
             ensure!(
@@ -96,7 +123,10 @@ pub fn get_page_sizes(
 
     ensure!(
         pages.is_empty() || expected_page_start == Some(output_size),
-        FactCheckerError::OutputPagesUncoveredOutput(expected_page_start.unwrap_or_default(), output_size)
+        FactCheckerError::OutputPagesUncoveredOutput(
+            expected_page_start.unwrap_or_default(),
+            output_size
+        )
     );
     Ok(page_sizes)
 }

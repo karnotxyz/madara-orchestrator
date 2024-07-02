@@ -18,7 +18,10 @@ async fn root() -> &'static str {
 }
 
 async fn handler_404() -> impl IntoResponse {
-    (StatusCode::NOT_FOUND, "The requested resource was not found")
+    (
+        StatusCode::NOT_FOUND,
+        "The requested resource was not found",
+    )
 }
 
 fn job_routes() -> Router {

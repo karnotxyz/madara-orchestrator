@@ -19,8 +19,10 @@ pub struct Orchestrator {
 
 impl Drop for Orchestrator {
     fn drop(&mut self) {
-        let mut kill =
-            Command::new("kill").args(["-s", "TERM", &self.process.id().to_string()]).spawn().expect("Failed to kill");
+        let mut kill = Command::new("kill")
+            .args(["-s", "TERM", &self.process.id().to_string()])
+            .spawn()
+            .expect("Failed to kill");
         kill.wait().expect("Failed to kill the process");
     }
 }
@@ -32,8 +34,10 @@ impl Orchestrator {
         let logs_dir = Path::join(root_dir, Path::new("target/logs"));
         create_dir_all(logs_dir.clone()).expect("Failed to create logs dir");
 
-        let stdout = Stdio::from(File::create(logs_dir.join(format!("{}-stdout.txt", binary))).unwrap());
-        let stderr = Stdio::from(File::create(logs_dir.join(format!("{}-stderr.txt", binary))).unwrap());
+        let stdout =
+            Stdio::from(File::create(logs_dir.join(format!("{}-stdout.txt", binary))).unwrap());
+        let stderr =
+            Stdio::from(File::create(logs_dir.join(format!("{}-stderr.txt", binary))).unwrap());
 
         Command::new("cargo")
             .stdout(stdout)
@@ -64,7 +68,9 @@ impl Orchestrator {
     }
 
     pub fn has_exited(&mut self) -> Option<ExitStatus> {
-        self.process.try_wait().expect("Failed to get orchestrator node exit status")
+        self.process
+            .try_wait()
+            .expect("Failed to get orchestrator node exit status")
     }
 
     pub async fn wait_till_started(&mut self) {

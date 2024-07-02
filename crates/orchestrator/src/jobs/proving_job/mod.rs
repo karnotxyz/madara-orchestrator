@@ -27,7 +27,10 @@ impl Job for ProvingJob {
         metadata: HashMap<String, String>,
     ) -> Result<JobItem> {
         if !metadata.contains_key(JOB_METADATA_CAIRO_PIE_PATH_KEY) {
-            return Err(eyre!("Cairo PIE path is not specified (prover job #{})", internal_id));
+            return Err(eyre!(
+                "Cairo PIE path is not specified (prover job #{})",
+                internal_id
+            ));
         }
         Ok(JobItem {
             id: Uuid::new_v4(),
@@ -46,9 +49,17 @@ impl Job for ProvingJob {
             .metadata
             .get(JOB_METADATA_CAIRO_PIE_PATH_KEY)
             .map(|s| PathBuf::from_str(s))
-            .ok_or_else(|| eyre!("Cairo PIE path is not specified (prover job #{})", job.internal_id))??;
+            .ok_or_else(|| {
+                eyre!(
+                    "Cairo PIE path is not specified (prover job #{})",
+                    job.internal_id
+                )
+            })??;
         let cairo_pie = CairoPie::read_zip_file(&cairo_pie_path).unwrap();
-        let external_id = config.prover_client().submit_task(Task::CairoPie(cairo_pie)).await?;
+        let external_id = config
+            .prover_client()
+            .submit_task(Task::CairoPie(cairo_pie))
+            .await?;
         Ok(external_id)
     }
 
