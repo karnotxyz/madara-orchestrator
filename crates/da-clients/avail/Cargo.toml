@@ -1,0 +1,18 @@
+[package]
+name = "avail"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[dependencies]
+async-trait = { workspace = true }
+color-eyre = { workspace = true }
+da-client-interface = { workspace = true }
+mockall = { workspace = true }
+serde = { workspace = true }
+utils = { workspace = true }
+futures = { workspace = true }
+
+avail-subxt = { workspace = true }
+subxt = { workspace = true }
+subxt-signer = { workspace = true }

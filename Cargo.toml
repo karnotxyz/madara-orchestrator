@@ -12,6 +12,7 @@ members = [
   "crates/settlement-clients/ethereum",
   "crates/settlement-clients/starknet",
   "e2e-tests",
+  "crates/da-clients/avail",
 ]
 
 [workspace.package]
@@ -56,6 +57,9 @@ hex = "0.4"
 itertools = "0.13.0"
 mockall = "0.12.1"
 testcontainers = "0.18.0"
+avail-subxt = { git = "https://github.com/availproject/avail", version = "0.5.0", tag = "v2.2.4.1-rc1" }
+subxt = { version = "0.37.0", features = ["substrate-compat"] }
+subxt-signer = { version = "0.37.0" }
 
 # Cairo VM
 cairo-vm = { git = "https://github.com/lambdaclass/cairo-vm", features = [

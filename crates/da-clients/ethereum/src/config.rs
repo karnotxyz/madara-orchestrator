@@ -13,7 +13,7 @@ impl DaConfig for EthereumDaConfig {
         Self {
             rpc_url: get_env_var_or_panic("ETHEREUM_RPC_URL"),
             memory_pages_contract: get_env_var_or_panic("MEMORY_PAGES_CONTRACT_ADDRESS"),
-            private_key: get_env_var_or_panic("PRIVATE_KEY"),
+            private_key: get_env_var_or_panic("ETHEREUM_PRIVATE_KEY"),
         }
     }
 }
