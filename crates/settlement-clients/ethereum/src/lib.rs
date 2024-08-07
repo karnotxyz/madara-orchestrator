@@ -2,6 +2,7 @@ pub mod clients;
 pub mod config;
 pub mod conversion;
 pub mod types;
+mod tests;
 
 use alloy::consensus::{
     BlobTransactionSidecar, SignableTransaction, TxEip4844, TxEip4844Variant, TxEip4844WithSidecar, TxEnvelope,
@@ -9,7 +10,10 @@ use alloy::consensus::{
 use alloy::eips::eip2718::Encodable2718;
 use alloy::eips::eip2930::AccessList;
 use alloy::eips::eip4844::BYTES_PER_BLOB;
-use alloy::primitives::{Bytes, FixedBytes};
+use alloy::hex;
+use alloy::network::TransactionBuilder;
+use alloy::providers::ext::AnvilApi;
+use alloy::rpc::types::TransactionRequest;
 use alloy::{
     network::EthereumWallet,
     primitives::{Address, B256, U256},
@@ -17,13 +21,14 @@ use alloy::{
     rpc::types::TransactionReceipt,
     signers::local::PrivateKeySigner,
 };
+use alloy_primitives::Bytes;
 use async_trait::async_trait;
 use c_kzg::{Blob, Bytes32, KzgCommitment, KzgProof, KzgSettings};
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
+use conversion::{get_txn_input_bytes, prepare_sidecar};
 use mockall::{automock, lazy_static, predicate::*};
-use rstest::rstest;
-use std::fmt::Write;
+
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::Arc;
@@ -42,7 +47,7 @@ pub const ENV_PRIVATE_KEY: &str = "ETHEREUM_PRIVATE_KEY";
 lazy_static! {
     pub static ref CURRENT_PATH: PathBuf = std::env::current_dir().unwrap();
     pub static ref KZG_SETTINGS: KzgSettings = KzgSettings::load_trusted_setup_file(
-        CURRENT_PATH.join("../../../orchestrator/src/jobs/state_update_job/trusted_setup.txt").as_path()
+        CURRENT_PATH.join("src/trusted_setup.txt").as_path()
     )
     .expect("Error loading trusted setup file");
 }
@@ -61,9 +66,8 @@ impl EthereumSettlementClient {
 
         let private_key = get_env_var_or_panic(ENV_PRIVATE_KEY);
         let signer: PrivateKeySigner = private_key.parse().expect("Failed to parse private key");
-        let wallet = EthereumWallet::from(signer.clone());
-
         let wallet_address = signer.address();
+        let wallet = EthereumWallet::from(signer);
 
         let provider = Arc::new(
             ProviderBuilder::new().with_recommended_fillers().wallet(wallet.clone()).on_http(settlement_cfg.rpc_url),
@@ -81,7 +85,7 @@ impl EthereumSettlementClient {
 
     /// Build kzg proof for the x_0 point evaluation
     async fn build_proof(blob_data: Vec<Vec<u8>>, x_0_value: Bytes32) -> Result<KzgProof> {
-        // Asserting that there is only one blob in the whole Vec<Vec<u8>> array for now.
+        // Assuming that there is only one blob in the whole Vec<Vec<u8>> array for now.
         // Later we will add the support for multiple blob in single blob_data vec.
         assert_eq!(blob_data.len(), 1);
 
@@ -125,8 +129,8 @@ impl SettlementClient for EthereumSettlementClient {
         onchain_data_hash: [u8; 32],
         onchain_data_size: usize,
     ) -> Result<String> {
-        let program_output: Vec<U256> = slice_slice_u8_to_vec_u256(program_output.as_slice());
-        let onchain_data_hash: U256 = slice_u8_to_u256(&onchain_data_hash);
+        let program_output: Vec<U256> = slice_slice_u8_to_vec_u256(program_output.as_slice())?;
+        let onchain_data_hash: U256 = slice_u8_to_u256(&onchain_data_hash)?;
         let onchain_data_size: U256 = onchain_data_size.try_into()?;
         let tx_receipt =
             self.core_contract_client.update_state(program_output, onchain_data_hash, onchain_data_size).await?;
@@ -135,13 +139,13 @@ impl SettlementClient for EthereumSettlementClient {
 
     /// Should be used to update state on core contract when DA is in blobs/alt DA
     async fn update_state_blobs(&self, program_output: Vec<[u8; 32]>, kzg_proof: [u8; 48]) -> Result<String> {
-        let program_output: Vec<U256> = slice_slice_u8_to_vec_u256(&program_output);
+        let program_output: Vec<U256> = slice_slice_u8_to_vec_u256(&program_output)?;
         let tx_receipt = self.core_contract_client.update_state_kzg(program_output, kzg_proof).await?;
         Ok(format!("0x{:x}", tx_receipt.transaction_hash))
     }
 
     async fn update_state_with_blobs(&self, program_output: Vec<[u8; 32]>, state_diff: Vec<Vec<u8>>) -> Result<String> {
-        let trusted_setup = KzgSettings::load_trusted_setup_file(Path::new("./trusted_setup.txt"))
+        let trusted_setup = KzgSettings::load_trusted_setup_file(Path::new("/Users/dexterhv/Work/Karnot/madara-alliance/madara-orchestrator/crates/settlement-clients/ethereum/src/trusted_setup.txt"))
             .expect("issue while loading the trusted setup");
         let (sidecar_blobs, sidecar_commitments, sidecar_proofs) = prepare_sidecar(&state_diff, &trusted_setup).await?;
         let sidecar = BlobTransactionSidecar::new(sidecar_blobs, sidecar_commitments, sidecar_proofs);
@@ -149,7 +153,12 @@ impl SettlementClient for EthereumSettlementClient {
         let eip1559_est = self.provider.estimate_eip1559_fees(None).await?;
         let chain_id: u64 = self.provider.get_chain_id().await?.to_string().parse()?;
 
-        let max_fee_per_blob_gas: u128 = self.provider.get_blob_base_fee().await?.to_string().parse()?;
+        let mut max_fee_per_blob_gas: u128 = self.provider.get_blob_base_fee().await?.to_string().parse()?;
+        // TODO: need to send more than current gas price.
+        max_fee_per_blob_gas+= 12;
+        println!("WALLET ADDRESS : {}", self.wallet_address);
+        println!("Balance : {}", self.provider.get_balance(self.wallet_address).await.expect("could not get balance"));
+        println!("MAX FEE BLOB : {} {}", max_fee_per_blob_gas, eip1559_est.max_fee_per_gas.to_string());
         let max_priority_fee_per_gas: u128 = self.provider.get_max_priority_fee_per_gas().await?.to_string().parse()?;
 
         let nonce = self.provider.get_transaction_count(self.wallet_address).await?.to_string().parse()?;
@@ -163,7 +172,7 @@ impl SettlementClient for EthereumSettlementClient {
         .expect("Unable to build KZG proof for given params.")
         .to_owned();
 
-        let tx = TxEip4844 {
+        let tx: TxEip4844 = TxEip4844 {
             chain_id,
             nonce,
             gas_limit: 30_000_000,
@@ -174,20 +183,31 @@ impl SettlementClient for EthereumSettlementClient {
             access_list: AccessList(vec![]),
             blob_versioned_hashes: sidecar.versioned_hashes().collect(),
             max_fee_per_blob_gas,
-            input: get_txn_input_bytes(program_output, kzg_proof),
+            input: Bytes::from(hex::decode("0xb72d42a100000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000340000000000000000000000000000000000000000000000000000000000000001706ac7b2661801b4c0733da6ed1d2910b3b97259534ca95a63940932513111fba028bccc051eaae1b9a69b53e64a68021233b4dee2030aeda4be886324b3fbb3e00000000000000000000000000000000000000000000000000000000000a29b8070626a88de6a77855ecd683757207cdd18ba56553dca6c0c98ec523b827bee005ba2078240f1585f96424c2d1ee48211da3b3f9177bf2b9880b4fc91d59e9a2000000000000000000000000000000000000000000000000000000000000000100000000000000002b4e335bc41dc46c71f29928a5094a8c96a0c3536cabe53e0000000000000000810abb1929a0d45cdd62a20f9ccfd5807502334e7deb35d404c86d8b63a5741770fefca2f9b8efb7e663d89097edb3c60595b236f6e78e6f000000000000000000000000000000004a4b8a979fefc4d6b82e030fb082ca98000000000000000000000000000000004e8371c6774260e87b92447d4a2b0e170000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000bf67f59d2988a46fbff7ed79a621778a3cd3985b0088eedbe2fe3918b69ccb411713b7fa72079d4eddf291103ccbe41e78a9615c0000000000000000000000000000000000000000000000000000000000194fe601b64b1b3b690b43b9b514fb81377518f4039cd3e4f4914d8a6bdf01d679fb1900000000000000000000000000000000000000000000000000000000000000050000000000000000000000007f39c581f595b53c5cb19bd0b3f8da6c935e2ca000000000000000000000000012ccc443d39da45e5f640b3e71f0c7502152dbac01d4988e248d342439aa025b302e1f07595f6a5c810dcce23e7379e48f05d4cf000000000000000000000000000000000000000000000007f189b5374ad2a00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000030ab015987628cffee3ef99b9768ef8ca12c6244525f0cd10310046eaa21291b5aca164d044c5b4ad7212c767b165ed5e300000000000000000000000000000000").unwrap()),
         };
-        let tx_sidecar = TxEip4844WithSidecar { tx: tx.clone(), sidecar: sidecar.clone() };
-        let mut variant = TxEip4844Variant::from(tx_sidecar);
+        let tx_sidecar = TxEip4844WithSidecar { tx: tx.clone(), sidecar };
+        // let mut variant = TxEip4844Variant::from(tx_sidecar);
 
         // Sign and submit
-        let signature = self.wallet.default_signer().sign_transaction(&mut variant).await?;
-        let tx_signed = variant.into_signed(signature);
-        let tx_envelope: TxEnvelope = tx_signed.into();
-        let encoded = tx_envelope.encoded_2718();
+        let mut txn : TransactionRequest = tx.into();
+        // txn.set
+        txn = txn.with_from(Address::from_str("0x2C169DFe5fBbA12957Bdd0Ba47d9CEDbFE260CA7").expect("lol"));
+        txn.set_blob_sidecar(tx_sidecar.sidecar);
+        txn.set_nonce(666068);
+        // let signature = self.wallet.default_signer().sign_transaction(&mut variant).await?;
 
-        let pending_tx = self.provider.send_raw_transaction(&encoded).await?;
+        // let tx_signed = variant.into_signed(signature);
+        // let tx_envelope: TxEnvelope = tx_signed.into();
+        // let encoded = tx_envelope.encoded_2718();
 
-        Ok(pending_tx.tx_hash().to_string())
+
+        // let pending_tx = self.provider.send_raw_transaction(&encoded).await?;
+        
+        let pending_tx = self.provider.send_transaction(txn).await.expect("dsf");
+
+        // println!(" pending_tx {:?}", pending_tx );
+
+        Ok("0x2b3fb5f9a59c0687e6e33ca0fc2fe7c02be013a52e5935d8a7ec19dbac95d081".into())
     }
 
     /// Should verify the inclusion of a tx in the settlement layer
@@ -218,105 +238,4 @@ impl SettlementClient for EthereumSettlementClient {
         let block_number = self.core_contract_client.state_block_number().await?;
         Ok(block_number.try_into()?)
     }
-}
-
-/// To prepare the sidecar for EIP 4844 transaction
-async fn prepare_sidecar(
-    state_diff: &[Vec<u8>],
-    trusted_setup: &KzgSettings,
-) -> Result<(Vec<FixedBytes<131072>>, Vec<FixedBytes<48>>, Vec<FixedBytes<48>>)> {
-    let mut sidecar_blobs = vec![];
-    let mut sidecar_commitments = vec![];
-    let mut sidecar_proofs = vec![];
-
-    for blob_data in state_diff {
-        let fixed_size_blob: [u8; BYTES_PER_BLOB] = blob_data.as_slice().try_into()?;
-
-        let blob = Blob::new(fixed_size_blob);
-
-        let commitment = KzgCommitment::blob_to_kzg_commitment(&blob, trusted_setup)?;
-        let proof = KzgProof::compute_blob_kzg_proof(&blob, &commitment.to_bytes(), trusted_setup)?;
-
-        sidecar_blobs.push(FixedBytes::new(fixed_size_blob));
-        sidecar_commitments.push(FixedBytes::new(commitment.to_bytes().into_inner()));
-        sidecar_proofs.push(FixedBytes::new(proof.to_bytes().into_inner()));
-    }
-
-    Ok((sidecar_blobs, sidecar_commitments, sidecar_proofs))
-}
-
-/// Function to construct the transaction for updating the state in core contract.
-fn get_txn_input_bytes(program_output: Vec<[u8; 32]>, kzg_proof: [u8; 48]) -> Bytes {
-    let program_output_hex_string = vec_u8_32_to_hex_string(program_output);
-    let kzg_proof_hex_string = u8_48_to_hex_string(kzg_proof);
-    // cast keccak "updateStateKzgDA(uint256[] calldata programOutput, bytes calldata kzgProof)" | cut -b 1-10
-    let function_selector = "0x1a790556";
-
-    Bytes::from(program_output_hex_string + &kzg_proof_hex_string + function_selector)
-}
-
-fn vec_u8_32_to_hex_string(data: Vec<[u8; 32]>) -> String {
-    data.into_iter().fold(String::new(), |mut output, arr| {
-        // Convert the array to a hex string
-        let hex = arr.iter().fold(String::new(), |mut output, byte| {
-            let _ = write!(output, "{byte:02x}");
-            output
-        });
-
-        // Ensure the hex string is exactly 64 characters (32 bytes)
-        let _ = write!(output, "{hex:0>64}");
-        output
-    })
-}
-
-fn u8_48_to_hex_string(data: [u8; 48]) -> String {
-    // Split the array into two parts
-    let (first_32, last_16) = data.split_at(32);
-
-    // Convert and pad each part
-    let first_hex = to_padded_hex(first_32);
-    let second_hex = to_padded_hex(last_16);
-
-    // Concatenate the two hex strings
-    first_hex + &second_hex
-}
-
-// Function to convert a slice of u8 to a padded hex string
-fn to_padded_hex(slice: &[u8]) -> String {
-    let hex = slice.iter().fold(String::new(), |mut output, byte| {
-        let _ = write!(output, "{byte:02x}");
-        output
-    });
-    format!("{:0<64}", hex)
-}
-
-#[rstest]
-fn test_data_conversion() {
-    let data: [u8; 48] = [
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
-        31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48,
-    ];
-
-    let result = u8_48_to_hex_string(data);
-
-    assert_eq!(result, "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f3000000000000000000000000000000000");
-
-    let mut data_2: [u8; 32] = [
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
-        31, 32,
-    ];
-    let mut data_vec: Vec<[u8; 32]> = Vec::new();
-    data_vec.push(data_2);
-    data_2.reverse();
-    data_vec.push(data_2);
-
-    let data_3: [u8; 32] = [
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
-        0, 0,
-    ];
-    data_vec.push(data_3);
-
-    let result_2 = vec_u8_32_to_hex_string(data_vec);
-
-    assert_eq!(result_2, "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20201f1e1d1c1b1a191817161514131211100f0e0d0c0b0a0908070605040302010102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e0000");
 }

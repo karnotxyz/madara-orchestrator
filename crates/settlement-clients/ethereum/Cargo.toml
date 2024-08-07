@@ -4,7 +4,8 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-alloy = { workspace = true, features = ["full"] }
+alloy = { workspace = true, features = ["full", "node-bindings" ] }
+alloy-primitives = { version = "0.7.7", default-features = false }
 async-trait = { workspace = true }
 c-kzg = "1.0.0"
 color-eyre = { workspace = true }
@@ -18,6 +19,7 @@ snos = { workspace = true }
 tokio = { workspace = true }
 url = { workspace = true }
 utils = { workspace = true }
+dotenvy = {workspace = true}
 
 [dev-dependencies]
 tokio-test = "*"
