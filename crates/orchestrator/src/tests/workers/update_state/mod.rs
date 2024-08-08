@@ -56,8 +56,8 @@ async fn test_update_state_worker(
 
         // mocking the return values of second function call (getting completed proving worker jobs)
         db.expect_get_jobs_after_internal_id_by_job_type()
-            .with(eq(JobType::ProofCreation), eq(JobStatus::Completed), eq("1".to_string()))
-            .returning(move |_, _, _| {
+            .with(eq(JobType::ProofCreation), eq("1".to_string()))
+            .returning(move |_, _| {
                 Ok(get_job_by_mock_id_vector(
                     JobType::ProofCreation,
                     JobStatus::Completed,

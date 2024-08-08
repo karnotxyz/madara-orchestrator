@@ -183,3 +183,116 @@ pub async fn build_storage_client() -> Box<dyn DataStorage + Send + Sync> {
         _ => panic!("Unsupported Storage Client"),
     }
 }
+
+#[cfg(test)]
+use httpmock::MockServer;
+
+// Inspiration : https://rust-unofficial.github.io/patterns/patterns/creational/builder.html
+// TestConfigBuilder allows to heavily customise the global configs based on the test's requirement.
+// Eg: We want to mock only the da client and leave rest to be as it is, use mock_da_client.
+
+// TestBuilder for Config
+#[cfg(test)]
+pub struct TestConfigBuilder {
+    /// The starknet client to get data from the node
+    starknet_client: Option<Arc<JsonRpcClient<HttpTransport>>>,
+    /// The DA client to interact with the DA layer
+    da_client: Option<Box<dyn DaClient>>,
+    /// The service that produces proof and registers it onchain
+    prover_client: Option<Box<dyn ProverClient>>,
+    /// Settlement client
+    settlement_client: Option<Box<dyn SettlementClient>>,
+    /// The database client
+    database: Option<Box<dyn Database>>,
+    /// Queue client
+    queue: Option<Box<dyn QueueProvider>>,
+    /// Storage client
+    storage: Option<Box<dyn DataStorage>>,
+}
+
+#[cfg(test)]
+impl Default for TestConfigBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[cfg(test)]
+impl TestConfigBuilder {
+    /// Create a new config
+    pub fn new() -> TestConfigBuilder {
+        TestConfigBuilder {
+            starknet_client: None,
+            da_client: None,
+            prover_client: None,
+            settlement_client: None,
+            database: None,
+            queue: None,
+            storage: None,
+        }
+    }
+
+    pub fn mock_da_client(mut self, da_client: Box<dyn DaClient>) -> TestConfigBuilder {
+        self.da_client = Some(da_client);
+        self
+    }
+
+    pub async fn build(mut self) -> MockServer {
+        dotenvy::from_filename("../.env.test").expect("Failed to load the .env file");
+
+        // init starknet client
+        if self.starknet_client.is_none() {
+            let provider = JsonRpcClient::new(HttpTransport::new(
+                Url::parse(get_env_var_or_panic("MADARA_RPC_URL").as_str()).expect("Failed to parse URL"),
+            ));
+            self.starknet_client = Some(Arc::new(provider));
+        }
+
+        // init database
+        if self.database.is_none() {
+            self.database = Some(Box::new(MongoDb::new(MongoDbConfig::new_from_env()).await));
+        }
+
+        // init queue
+        if self.queue.is_none() {
+            self.queue = Some(Box::new(SqsQueue {}));
+        }
+
+        // init the DA client
+        if self.da_client.is_none() {
+            self.da_client = Some(build_da_client().await);
+        }
+
+        let settings_provider = DefaultSettingsProvider {};
+
+        // init the Settings client
+        if self.settlement_client.is_none() {
+            self.settlement_client = Some(build_settlement_client(&settings_provider).await);
+        }
+
+        // init the Prover client
+        if self.prover_client.is_none() {
+            self.prover_client = Some(build_prover_service(&settings_provider));
+        }
+
+        // init the storage client
+        if self.storage.is_none() {
+            self.storage = Some(build_storage_client().await);
+        }
+
+        // return config and server as tuple
+        let config = Config::new(
+            self.starknet_client.unwrap(),
+            self.da_client.unwrap(),
+            self.prover_client.unwrap(),
+            self.settlement_client.unwrap(),
+            self.database.unwrap(),
+            self.queue.unwrap(),
+            self.storage.unwrap(),
+        );
+
+        config_force_init(config).await;
+
+        MockServer::start()
+    }
+}
