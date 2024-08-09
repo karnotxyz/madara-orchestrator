@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt};
 
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
@@ -99,6 +99,22 @@ pub enum JobStatus {
     VerificationTimeout,
     /// The job failed processing
     VerificationFailed,
+    /// The job failed completing
+    Failed,
+}
+
+impl fmt::Display for JobStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            JobStatus::Created => write!(f, "Created"),
+            JobStatus::LockedForProcessing => write!(f, "Locked for Processing"),
+            JobStatus::PendingVerification => write!(f, "Pending Verification"),
+            JobStatus::Completed => write!(f, "Completed"),
+            JobStatus::VerificationTimeout => write!(f, "Verification Timeout"),
+            JobStatus::VerificationFailed => write!(f, "Verification Failed"),
+            JobStatus::Failed => write!(f, "Failed"),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
